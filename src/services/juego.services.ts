@@ -3,7 +3,7 @@ import { Juego } from "../models/juego";
 import { Juego_Genero } from "../models/juego_genero";
 import { Juego_Consola } from "../models/juego_consola";
 import sequelize from "../db/connection";
-import { Consola } from "../models/consola";
+import { Op } from "sequelize";
 
 export const _getJuegos = async (
   inicio: number,
@@ -26,8 +26,15 @@ export const _getJuegos = async (
       join genero g on g.genero_id = jg.genero_id
       join juego_consola jc on jc.juego_id = j.juego_id
       join consola c on c.consola_id = jc.consola_id
-      where (g.genero in (:generos) or g.genero is not null )
-      and (c.consola in (:consolas) or c.consola is not null )
+      ${
+        consolas.length === 0 && generos.length !== 0
+          ? "where g.genero in (:generos)"
+          : generos.length === 0 && consolas.length !== 0
+          ? "where c.consola in (:consolas)"
+          : generos.length !== 0 && consolas.length !== 0
+          ? "where g.genero in (:generos) and c.consola in (:consolas) "
+          : ""
+      }
       group by juego_id
       limit :cantidad
       offset :inicio;`,
@@ -46,7 +53,6 @@ export const _getJuegos = async (
     return { status: 200, items: juegos[0] };
   } catch (error) {
     console.log(error);
-
     return { status: 400, error };
   }
 };
@@ -57,8 +63,11 @@ export const _getJuego = async (nombre: string) => {
       `
     select	
       j.nombre,
+      j.imagen,
+      j.descripcion,
+      j.desarrolladora,
       group_concat(distinct g.genero separator ',') as generos,
-      group_concat(distinct g.genero separator ',') as consola
+      group_concat(distinct c.consola separator ',') as consolas
       from juego j
       join juego_consola jc on jc.juego_id = j.juego_id
       join consola c on c.consola_id = jc.consola_id
@@ -68,9 +77,9 @@ export const _getJuego = async (nombre: string) => {
       { replacements: { nombre: nombre } }
     );
 
-    const juego = consulta as JuegoInterface[];
+    const juego = consulta[0] as JuegoInterface[];
 
-    return { status: 200, item: juego };
+    return { status: 200, item: juego[0] };
   } catch (error) {
     return { status: 400, error };
   }
@@ -116,5 +125,23 @@ export const _createJuego = async (
 
     await transaction.rollback();
     return { msg: "_createJuego_error", error, status: 400 };
+  }
+};
+
+export const _searchJuego = async (
+  nombre: string,
+  inicio: number,
+  cantidad: number
+) => {
+  try {
+    const juegos = await Juego.findAll({
+      where: { nombre: { [Op.like]: `%${nombre}%` } },
+      limit: cantidad,
+      offset: inicio,
+    });
+
+    return { status: 200, items: juegos };
+  } catch (error) {
+    return { status: 400, error };
   }
 };

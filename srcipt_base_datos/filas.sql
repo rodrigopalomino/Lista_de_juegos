@@ -56,7 +56,9 @@ insert into juego(nombre,precio,imagen,descripcion, desarrolladora) values
     
 insert into juego_consola(juego_id,consola_id) values 
     (1,3),
+    (1,2),
     (2,3),
+    (2,2),
     (3,3),
     (4,3),
     (5,3),
